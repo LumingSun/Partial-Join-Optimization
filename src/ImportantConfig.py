@@ -29,3 +29,14 @@ class PGRunner:
         rows = cursor.fetchone()
         cursor.close()
         return rows[0][0]
+    
+    def execution_cost(self,query,time_limit=300000,enable_parallel=False):
+        cursor = self.con.cursor()
+        cursor.execute("SET statement_timeout TO {}".format(time_limit))
+        if not enable_parallel:
+            cursor.execute("set max_parallel_workers_per_gather = 0")
+        cursor.execute("load 'pg_hint_plan'")
+        cursor.execute("EXPLAIN (FORMAT JSON,ANALYSE)" + query + ";")
+        rows = cursor.fetchall()
+        cursor.close()
+        return rows[0][0][0]["Execution Time"], rows[0][0][0]

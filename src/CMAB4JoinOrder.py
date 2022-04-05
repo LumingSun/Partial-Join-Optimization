@@ -1,62 +1,32 @@
 # %%
+from Query import Query, Workload
+from ImportantConfig import Config, PGRunner
+import random
 import os
-from d2l import torch as d2l
-import torch
-from torch import nn
-from net import TransformerEncoder, TransformerDecoder, EncoderDecoder
-import math
+
+config = Config()
 
 
-def read_queries(sql_dir):
-    data = []
-    sql_files = sorted(os.listdir(sql_dir))
-    for file in sql_files:
-        with open(os.path.join(sql_dir,file),"r") as f:
-            query = f.read().replace("\n"," ")
-            data.append(query)
-    return data
+# %%
+sql_dir = "/home/sunluming/join/PartialJoin/data/join-order-benchmark"
+workload = Workload(sql_dir,method="occurance_in_plan")
 
+# %%
+def get_plan_latency(query):      
+    pgrunner = PGRunner(config.dbName,config.userName,config.password,config.ip,config.port)
+    latency, plan = pgrunner.execution_cost(query)
+    # plan = pgrunner.optimizer_cost(query)
+    return latency, plan
 
-def load_query_data(data,batch_size):
-    tokens = d2l.tokenize(data,token="word")
-    vocab = d2l.Vocab(tokens,reserved_tokens=['<pad>'])
-    num_steps = max([len(line) for line in tokens])+3
-    # num_steps = 200
-    features = torch.tensor([d2l.truncate_pad(
-        vocab[line], num_steps, vocab['<pad>']) for line in tokens])
-    valid_len = d2l.reduce_sum(
-        d2l.astype(features != vocab['<pad>'], d2l.int32), 1)
-    data_arrays = (features, valid_len, features, valid_len)
-    data_iter = d2l.load_array((data_arrays), batch_size)
-    return data_iter, vocab, num_steps
+# %%
+with open("/home/sunluming/join/PartialJoin/data/join-order-benchmark/13a.sql") as f:
+    query = f.read().replace("\n"," ")
 
+default_latency, default_plan = get_plan_latency(query)
+print("default plan latency: ",default_latency)
+Query_q = Query(query,workload)
+hints = Query_q.generate_join_order(random.choice(Query_q.candidate_arms))
+latency, plan = get_plan_latency(hints+query)
 
-def get_encoder_result(net, query, src_vocab,  device):
-    num_steps = len(d2l.tokenize([query],token="word")[0]) + 1
-    net.eval()
-    src_tokens = src_vocab[query.lower().split(' ')] + [
-        src_vocab['<eos>']]
-    enc_valid_len = torch.tensor([len(src_tokens)], device=device)
-    src_tokens = d2l.truncate_pad(src_tokens, num_steps, src_vocab['<pad>'])
-    # 添加批量轴
-    enc_X = torch.unsqueeze(
-        torch.tensor(src_tokens, dtype=torch.long, device=device), dim=0)
-    enc_outputs = net.encoder(enc_X, enc_valid_len)
-    print(enc_outputs)
-    print(enc_outputs.size())
-    print(num_steps)
-    return enc_outputs
-
-
-sql_files = sorted(os.listdir(sql_dir))
-for file in sql_files:
-    print(file)
-    with open(os.path.join(sql_dir,file),"r") as f:
-        query = f.read().replace("\n"," ")
-    num_steps = len(d2l.tokenize([query],token="word")[0]) + 2
-    translation, dec_attention_weight_seq = d2l.predict_seq2seq(
-        net, query, vocab, vocab, num_steps, device, True)
-    print(d2l.bleu(translation, 
-                   " ".join(d2l.tokenize([query],token="word")[0]), k=2))
-    # print(translation)    
-    # break
+print("selected plan latency: ",latency)
+# %%

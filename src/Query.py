@@ -71,6 +71,8 @@ class Workload():
         self.plan_order = []
         self.tables_shortcuts = {}
         self.shortcuts_tables = {}
+        self.candidate_arms = [None]
+        self.workload_info()
         
     def workload_info(self):
         sql_files = sorted(os.listdir(self.sql_dir))
@@ -104,8 +106,8 @@ class Workload():
         elif(self.method=="occurance_in_query"):
             self.top_tables = self.table_occurance_in_query()[:self.threshold]
             
-        self.candidate_arms = list(permutations(self.top_tables))
-        self.candidate_arms.append(None)
+        self.candidate_arms.extend(list(permutations(self.top_tables)))
+        # self.candidate_arms.append(None)
         
             
             
@@ -164,24 +166,41 @@ class Query():
         """
         self.query_string = query_string
         self.shortcuts_tables = None
-        self.candidate_arms = []
+        self.candidate_arms = [0]
         self.workload = workload
+        self.tables_in_query_arm = None
+        self.extract_tables()
+        self.generate_arms()
  
     def extract_tables(self):
         self.shortcuts_tables = table_shortcut(self.query_string)
         
-    def generate_join_order(self):
-        shortcuts = self.shortcuts_tables.keys()
-        orders = list(permutations(shortcuts))
-        hints = [" ".join(each) for each in orders]
-        hints = ["Leading({})".format(each) for each in hints]
-        return hints
+    def generate_join_order(self,selected_arm):
+        if(selected_arm==0):
+            return ""
+        else:
+            orders = (self.workload.candidate_arms[selected_arm][:len(self.tables_in_query_arm)])
+            hints = "/*+ Leading({}) */".format(" ".join(orders))
+            return hints
     
+    def available_arms(self):
+        tables_in_query_arm = []
+        tables_in_workload_arm = self.workload.top_tables
+        for k,v in self.shortcuts_tables.items():
+            if(k in tables_in_workload_arm):
+                tables_in_query_arm.append(k)
+        t_num = len(tables_in_query_arm)
+        self.tables_in_query_arm = sorted(tables_in_query_arm)
+        
+        for idx,arm in enumerate(self.workload.candidate_arms[1:]):
+            if(sorted(arm[:t_num]) == self.tables_in_query_arm):
+                self.candidate_arms.append(idx)
+                 
     def generate_arms(self,join_order=True,physical_operator=False):
         if(physical_operator==True):
             raise NotImplementedError("physical operator arms not implemented")
         if(join_order==True):
-            self.candidate_arms = self.generate_join_order()
+            return self.available_arms()
                 
     
 query = """
@@ -206,13 +225,15 @@ WHERE ct.kind = 'production companies'
   
 
 # %%
-sql_dir = "../data/join-order-benchmark"
+# sql_dir = "../data/join-order-benchmark"
 # sql_dir = "../data/bao_sample_queries"
 # w = Workload(sql_dir,method="occurance_in_join")
-w = Workload(sql_dir,method="occurance_in_plan")
-w.workload_info()
+# w = Workload(sql_dir,method="occurance_in_plan")
+
+# # %%
+# q = Query(query,w)
+# q.extract_tables()
+# q.generate_arms()
 # %%
-q = Query(query)
-q.extract_tables()
-q.generate_arms()
+
 # %%
