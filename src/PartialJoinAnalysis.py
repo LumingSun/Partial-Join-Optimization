@@ -74,3 +74,37 @@ nx.draw_networkx_edge_labels(G,pos,
                              font_color='red')
 # plt.show()
 plt.savefig("../result/JOB-query-joins.png")
+
+#%%
+
+def extract_contained_tables(query_string):
+    parser = Parser(query_string)
+    table_shortcuts = parser.tables_aliases
+    return table_shortcuts.values()
+
+# sql_dir = "../data/join-order-benchmark"
+sql_dir = "../data/bao_sample_queries"
+
+sql_files = os.listdir(sql_dir)
+tables_in_query = {}
+for file in sql_files:
+    with open(os.path.join(sql_dir,file),"r") as f:
+        query_string = f.read()
+        contained_tables = sorted(extract_contained_tables(query_string))
+        tables_in_query[file] = contained_tables
+# %%
+reversed_dict = {}
+for k,v in tables_in_query.items():
+    table_string = " ,".join(v)
+    if(table_string not in reversed_dict.keys()):
+        reversed_dict[table_string] = [k]
+    else:
+        reversed_dict[table_string].append(k)
+# # %%
+# ('company_name', 'movie_companies'): 74,
+# ('movie_companies', 'title'): 81,
+# ('cast_info', 'name'): 54,
+# ('movie_info', 'title'): 57,
+# ('movie_keyword', 'title'): 77,
+# ('keyword', 'movie_keyword'): 75,
+# ('cast_info', 'title'): 57,

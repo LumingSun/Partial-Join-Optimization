@@ -2,32 +2,9 @@
 import json
 import os
 import psycopg2
-from ImportantConfig import Config
+from ImportantConfig import Config, PGRunner
 
 config = Config()
-# %%
-class PGConfig:
-    def __init__(self):
-        self.keepExecutedPlan =True
-        self.maxTimes = 5
-        self.maxTime = 300000
-class PGRunner:
-    def __init__(self,dbname = '',user = '',password = '',host = '',port = ''):
-        self.con = psycopg2.connect(database=dbname, user=user,
-                               password=password, host=host, port=port)
-
-    def optimizer_cost(self, query):
-        query = "EXPLAIN (FORMAT JSON) " + query + ";"
-        cursor = self.con.cursor()
-        settings = "set max_parallel_workers_per_gather = 0; "
-        cursor.execute(settings+query)
-        rows = cursor.fetchone()
-        cursor.close()
-        return rows[0][0]
-
-# %%
-
-
 
 # %%
 def extract_join_order(tree):
@@ -45,24 +22,36 @@ def extract_join_order(tree):
     
 # %%
 
-def get_plan(sql_dir):
-    orders = []
-    sql_files = os.listdir(sql_dir)
-    for file in sql_files:
-        print(file)
-        with open(os.path.join(sql_dir,file),"r") as f:
-            query = f.read().replace("\n"," ")            
-        pgrunner = PGRunner(config.dbName,config.userName,config.password,config.ip,config.port)
-        plan = pgrunner.optimizer_cost(query)
-        # print(plan)
-        order = extract_join_order(plan)
-        # print(order)
-        orders.append(order)
-        # break
-    return orders
+def get_plan(sql_dir,file):
+    with open(os.path.join(sql_dir,file),"r") as f:
+        query = f.read().replace("\n"," ")            
+    pgrunner = PGRunner(config.dbName,config.userName,config.password,config.ip,config.port)
+    plan = pgrunner.optimizer_cost(query)
+    # print(plan)
+    order = extract_join_order(plan)
+    # print(order)
+    return order
 # %%
+orders = []
 sql_dir = "../data/join-order-benchmark"
-orders = get_plan(sql_dir)
+sql_files = os.listdir(sql_dir)
+for file in sql_files:
+    orders.append(get_plan(sql_dir,file))
+
+# %%
+orders = []
+sql_dir = "../data/join-order-benchmark"
+sql_files = os.listdir(sql_dir)
+for i in range(33):
+    order = []
+    for file in sql_files:
+        if(file.startswith(str(i))):
+            order.append(get_plan(sql_dir,file))
+    orders.append(order)
+
+
+
+
 # %%
 from apyori import apriori
 
