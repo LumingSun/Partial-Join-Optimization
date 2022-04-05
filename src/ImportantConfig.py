@@ -36,7 +36,11 @@ class PGRunner:
         if not enable_parallel:
             cursor.execute("set max_parallel_workers_per_gather = 0")
         cursor.execute("load 'pg_hint_plan'")
-        cursor.execute("EXPLAIN (FORMAT JSON,ANALYSE)" + query + ";")
-        rows = cursor.fetchall()
-        cursor.close()
-        return rows[0][0][0]["Execution Time"], rows[0][0][0]
+        try:
+            cursor.execute("EXPLAIN (FORMAT JSON,ANALYSE)" + query + ";")
+            rows = cursor.fetchall()
+            cursor.close()
+            return rows[0][0][0]["Execution Time"], rows[0][0][0]
+        except psycopg2.errors.QueryCanceled:
+            cursor.close()
+            return time_limit, "Empty Plan"
