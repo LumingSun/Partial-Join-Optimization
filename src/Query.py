@@ -71,6 +71,7 @@ class Workload():
         self.plan_order = []
         self.tables_shortcuts = {}
         self.shortcuts_tables = {}
+        self.tables_index = {}
         self.candidate_arms = [None]
         self.workload_info()
         
@@ -92,6 +93,11 @@ class Workload():
                 self.joins.extend(join)
         self.join_count = collections.Counter(map(tuple,self.joins))
         self.tables_shortcuts = dict((v, k) for k, v in self.shortcuts_tables.items())
+        
+        index = 0
+        for k,v in self.tables_shortcuts.items():
+            self.tables_index[k] = index
+            index += 1
         
         if(self.method=="occurance_in_join"):
             for each in self.join_count.most_common():
@@ -166,14 +172,19 @@ class Query():
         """
         self.query_string = query_string
         self.shortcuts_tables = None
+        self.tables_shortcuts = None
         self.candidate_arms = [0]
         self.workload = workload
         self.tables_in_query_arm = None
+        self.context = []
+        self.t_num = 0
         self.extract_tables()
         self.generate_arms()
+        self.generate_context()
  
     def extract_tables(self):
         self.shortcuts_tables = table_shortcut(self.query_string)
+        self.tables_shortcuts = dict((v, k) for k, v in self.shortcuts_tables.items())
         
     def generate_join_order(self,selected_arm):
         if(selected_arm==0):
@@ -189,12 +200,21 @@ class Query():
         for k,v in self.shortcuts_tables.items():
             if(k in tables_in_workload_arm):
                 tables_in_query_arm.append(k)
-        t_num = len(tables_in_query_arm)
+        self.t_num = len(tables_in_query_arm)
         self.tables_in_query_arm = sorted(tables_in_query_arm)
-        
         for idx,arm in enumerate(self.workload.candidate_arms[1:]):
-            if(sorted(arm[:t_num]) == self.tables_in_query_arm):
-                self.candidate_arms.append(idx)
+            if(sorted(arm[:self.t_num]) == self.tables_in_query_arm):
+                self.candidate_arms.append(idx+1)
+
+    def arm_remapping(self,arm_index):
+        if(arm_index==0):
+            return [0]
+        else:
+            remapping_arm = []
+            for idx,arm in enumerate(self.workload.candidate_arms[1:]):
+                if(arm[:self.t_num] == self.workload.candidate_arms[arm_index][:self.t_num]):
+                    remapping_arm.append(idx+1)
+            return remapping_arm
                  
     def generate_arms(self,join_order=True,physical_operator=False):
         if(physical_operator==True):
@@ -202,7 +222,14 @@ class Query():
         if(join_order==True):
             return self.available_arms()
                 
-    
+    def generate_context(self):
+        for k,v in self.workload.tables_index.items():
+            if(k in self.tables_shortcuts):
+                self.context.append(1)
+            else:
+                self.context.append(0)
+
+
 # query = """
 # SELECT MIN(mc.note) AS production_note,
 #        MIN(t.title) AS movie_title,

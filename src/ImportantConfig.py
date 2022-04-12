@@ -30,7 +30,7 @@ class PGRunner:
         cursor.close()
         return rows[0][0]
     
-    def execution_cost(self,query,time_limit=300000,enable_parallel=False):
+    def execution_cost(self,query,time_limit,enable_parallel=False):
         cursor = self.con.cursor()
         cursor.execute("SET statement_timeout TO {}".format(time_limit))
         if not enable_parallel:
@@ -44,3 +44,9 @@ class PGRunner:
         except psycopg2.errors.QueryCanceled:
             cursor.close()
             return time_limit, "Empty Plan"
+
+def get_plan_latency(config,query,time_limit=300000):      
+    pgrunner = PGRunner(config.dbName,config.userName,config.password,config.ip,config.port)
+    latency, plan = pgrunner.execution_cost(query,time_limit,False)
+    # plan = pgrunner.optimizer_cost(query)
+    return latency, plan
