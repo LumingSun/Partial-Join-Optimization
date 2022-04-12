@@ -20,12 +20,16 @@ def save_hint(file,query,selected_arm,reward,hint):
                 +hint+"\n")
 
 # %%
+RANDOM_SIZE = 3
 folder_time = datetime.now().strftime("%Y-%m-%d_%I-%M-%S_%p")
-sql_dir = "/home/sunluming/join/PartialJoin/data/join-order-benchmark"
-log_file = "/home/sunluming/join/PartialJoin/data/log_files/join-order-benchmark-exp-{}.txt".format(folder_time)
-hint_file = "/home/sunluming/join/PartialJoin/data/hint_files/join-order-benchmark-exp-{}.txt".format(folder_time)
-plan_folder = "/home/sunluming/join/PartialJoin/data/plan_data/job"
+dataset = "join-order-benchmark"
+# dataset = "bao_sample_queries"
+sql_dir = "/home/sunluming/join/PartialJoin/data/{}".format(dataset)
+log_file = "/home/sunluming/join/PartialJoin/data/log_files/{}-exp-{}.txt".format(dataset,folder_time)
+hint_file = "/home/sunluming/join/PartialJoin/data/hint_files/{}-exp-{}.txt".format(dataset,folder_time)
+plan_folder = "/home/sunluming/join/PartialJoin/data/plan_data/{}".format(dataset)
 workload = Workload(sql_dir,method="occurance_in_plan")
+print(workload.top_tables)
 # %%
 # sql_files = os.listdir(sql_dir)
 for file in workload.sql_file:
@@ -36,28 +40,30 @@ for file in workload.sql_file:
     Query_q = Query(query,workload)
     context = Query_q.context
     
-    default_latency, default_plan = get_plan_latency(config, query)
+    default_latency, default_plan = get_plan_latency(config, query, enable_parellel=True)
     with open(os.path.join(plan_folder,(file.split(".")[0]+"_arm-0.json")),"w") as f:
         json.dump(default_plan, f)    
     print("[INFO]: Default plan latency: ",default_latency)
     save_experience(log_file,file,0,default_latency,context)
     save_hint(hint_file,file,0,default_latency," ")
     print("[INFO]: Arm space: ", Query_q.candidate_arms)
-    random_arm = random.choice(Query_q.candidate_arms)
-    print("[INFO]: Selected arm: ",random_arm)
     
-    hints = Query_q.generate_join_order(random_arm)
-    equal_arm_mappings = Query_q.arm_remapping(random_arm)
-    print("[INFO]: Equal arms: ", equal_arm_mappings)
-    
-    latency, plan = get_plan_latency(config,hints+query,time_limit=2*int(default_latency))
-    save_hint(hint_file,file,random_arm,latency,hints)
+    for cnt in range(RANDOM_SIZE):
+        random_arm = random.choice(Query_q.candidate_arms)
+        print("[INFO]: Selected arm: ",random_arm)
+        
+        hints = Query_q.generate_join_order(random_arm)
+        equal_arm_mappings = Query_q.arm_remapping(random_arm)
+        print("[INFO]: Equal arms: ", equal_arm_mappings)
+        
+        latency, plan = get_plan_latency(config,hints+query,time_limit=2*int(default_latency), enable_parellel=True)
+        save_hint(hint_file,file,random_arm,latency,hints)
 
-    print("[INFO]: Selected plan latency: ",latency)
-    for arm in equal_arm_mappings:
-        save_experience(log_file,file,arm,latency,context)
-        with open(os.path.join(plan_folder,(file.split(".")[0]+"_arm-{}.json".format(arm))),"w") as f:
-            json.dump(plan, f)    
+        print("[INFO]: Selected plan latency: ",latency)
+        for arm in equal_arm_mappings:
+            save_experience(log_file,file,arm,latency,context)
+            with open(os.path.join(plan_folder,(file.split(".")[0]+"_arm-{}.json".format(arm))),"w") as f:
+                json.dump(plan, f)    
     # break
     print("")
 # %%
