@@ -201,10 +201,11 @@ class Query():
             if(k in tables_in_workload_arm):
                 tables_in_query_arm.append(k)
         self.t_num = len(tables_in_query_arm)
-        self.tables_in_query_arm = sorted(tables_in_query_arm)
-        for idx,arm in enumerate(self.workload.candidate_arms[1:]):
-            if(sorted(arm[:self.t_num]) == self.tables_in_query_arm):
-                self.candidate_arms.append(idx+1)
+        if(self.t_num != 0):
+            self.tables_in_query_arm = sorted(tables_in_query_arm)
+            for idx,arm in enumerate(self.workload.candidate_arms[1:]):
+                if(sorted(arm[:self.t_num]) == self.tables_in_query_arm):
+                    self.candidate_arms.append(idx+1)
 
     def arm_remapping(self,arm_index):
         if(arm_index==0):
