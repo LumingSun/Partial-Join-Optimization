@@ -2,3 +2,5 @@ src/__pycache__/
 data/plan_data/
 data/hint_files/
 data/log_files/
+src/online/__pycache__/
+src/online/deepo_default_model/

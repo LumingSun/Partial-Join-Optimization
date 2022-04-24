@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "LaunchPath",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            //工作路径用打开的顶层目录，影响文件读写相对路径
+            // "cwd": "${workspaceFolder}", 
+            //工作路径用当前文件所在目录，影响文件读写相对路径
+            "cwd": "${fileDirname}",
+            // sys.path 会加入顶层目录，影响模块导入查询路径
+            "env": { "PYTHONPATH": "${workspaceFolder}" }
+        }
+    ]
+}
